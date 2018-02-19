@@ -1,0 +1,120 @@
+---
+title: "sea-viewer"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    source_code: "https://github.com/hesscl/sea-viewer"
+---
+
+```{r setup, echo = FALSE, include = FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(sqldf)
+
+#data
+DB <- dbConnect(SQLite(), dbname="../data/cl/craigslistDB.sqlite")
+clean <- tbl(DB, "clean") #clean seattle listing table
+tract <- tbl(DB, "tract")
+
+#query the clean table, re-establish date classes, de-dupe
+cl <- clean %>% 
+  collect %>% 
+  mutate(listingDate = as.Date(listingDate),
+         listingMoYr = as.Date(listingMoYr)) %>%
+  mutate(catSqft = fct_reorder(catSqft, cleanSqft)) %>%
+  filter(!is.na(cleanBeds), !is.na(cleanRent), !is.na(cleanSqft), !is.na(matchAddress)) %>%
+  distinct(matchAddress, matchAddress2, catBeds, cleanRent, cleanSqft, .keep_all = T)
+
+#query the tract geography table
+wash <- tract %>%
+  filter(STATEFP10 == 53, COUNTYFP10 == 33) %>%
+  collect
+
+computeListings <- function(x){
+  y <- x %>% 
+    filter(listingDate %in% seq(Sys.Date()-30, Sys.Date(), by = 1)) %>%
+    group_by(listingDate) %>%
+    summarize(n = n()) %>%
+    summarize(median = median(n)) %>%
+    pull(median)
+  y <- prettyNum(y, big.mark = ",")
+}
+
+computeKCMedian30 <- function(x){
+  y <- x %>% 
+    filter(listingDate %in% seq(Sys.Date()-30, Sys.Date(), by = 1)) %>%
+    summarize(median = median(cleanRent)) %>%
+    pull(median)
+  y <- prettyNum(y, big.mark = ",")
+}
+
+computeSeaMedian30 <- function(x){
+  y <- x %>% 
+    filter(listingDate %in% seq(Sys.Date()-30, Sys.Date(), by = 1)) %>%
+    filter(seattle == 1) %>%
+    summarize(median = median(cleanRent)) %>%
+    pull(median)
+  y <- prettyNum(y, big.mark = ",")
+}
+
+```
+
+Overview {data-icon="fa-home"}
+=====================================
+
+Row
+-------------------------------------
+
+### Welcome
+
+This website provides the latest information from the UW team's rental market database. 
+
+For more information, contact the project team at [searent@uw.edu](mailto://searent@uw.edu).
+
+
+
+Row
+-------------------------------------
+
+### Median listings per day (past 30 days)
+
+```{r list}
+listings <- computeListings(cl)
+valueBox(listings, icon = "fa-list")
+```
+
+### King County median listing (past 30 days)
+
+```{r}
+median <- computeKCMedian30(cl)
+valueBox(paste0("\U0024", median), icon = "fa-dollar-sign")
+```
+
+### Seattle median listing (past 30 days) 
+
+```{r}
+median <- computeSeaMedian30(cl)
+valueBox(paste0("\U0024", median), icon = "fa-dollar-sign")
+```
+
+
+Rent levels {data-navmenu="County"}
+=====================================
+
+Listing activity {data-navmenu="County"}
+=====================================
+
+Rent levels {data-navmenu="City"}
+=====================================
+
+Listing activity {data-navmenu="City"}
+=====================================
+
+Rent levels {data-navmenu="Neighborhood"}
+=====================================
+
+Listing activity {data-navmenu="Neighborhood"}
+=====================================
+
+DataTable {data-icon="fa-table"}
+=====================================
