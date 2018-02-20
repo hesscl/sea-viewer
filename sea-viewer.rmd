@@ -196,12 +196,11 @@ Overview {data-navmenu="Seattle"}
 Row
 -------------------------------------
 
-### 90-Day Summary
+### 90-day summary for Seattle listings
 
 ```{r}
 DT::datatable(compute90(cl %>% filter(seattle == 1)),
               rownames = F,
-              caption = "Seattle Listings",
               colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
               class = "cell-border stripe",
               style = "bootstrap",
@@ -209,17 +208,16 @@ DT::datatable(compute90(cl %>% filter(seattle == 1)),
               extensions = 'Buttons', 
               options = list(dom = 'Bfrtip',
                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
-                             paging = F
-                             )
-              )
+                             paging = F,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))))
+              
 ```
 
 
 Row
 -------------------------------------
 
-### Trend Analysis
-
+### Trend analysis
 
 ```{r}
 agg_sea <- aggTrends(cl %>% filter(seattle == 1))
@@ -257,12 +255,11 @@ Overview  {data-navmenu="King County"}
 Row
 -------------------------------------
 
-### 90-Day Summary
+### 90-day summary for King County listings
 
 ```{r}
 DT::datatable(compute90(cl),
               rownames = F,
-              caption = "King County Listings",
               colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
               class = "cell-border stripe",
               style = "bootstrap",
@@ -270,16 +267,15 @@ DT::datatable(compute90(cl),
               extensions = 'Buttons', 
               options = list(dom = 'Bfrtip',
                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
-                             paging = F
-                             )
-              )
+                             paging = F,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))))
 ```
 
 
 Row
 -------------------------------------
 
-### Trend Analysis
+### Trend analysis
 
 ```{r, }
 agg_kc <- aggTrends(cl)
@@ -313,15 +309,55 @@ Maps  {data-navmenu="King County"}
 
 
 
-Neighborhoods
+Ballard {data-navment="Neighborhoods"}
 =====================================
 
 Row
 -------------------------------------
 
-### 90-Day Summary
+### 90-day summary
 
 
+Belltown {data-navment="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+Capitol Hill {data-navment="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+Downtown {data-navment="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+
+South Lake Union {data-navment="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+Northgate {data-navment="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
 
 
 
