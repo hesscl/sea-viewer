@@ -16,6 +16,9 @@ library(dygraphs)
 library(imputeTS)
 library(plotly)
 library(forecast)
+library(rgdal)
+library(leaflet)
+library(spdplyr)
 library(DT)
 
 #data
@@ -41,6 +44,17 @@ wash <- tract %>%
 
 #load other tables
 ds <- read_csv(file = "../data/d+s/city-level D+S.csv")
+
+#load shapefiles
+sea_shp <- readOGR(dsn = "../data/geo/sea_tract_2010/sea_tract_2010.shp",
+               layer = "sea_tract_2010",
+               GDAL1_integer64_policy = TRUE,
+               stringsAsFactors = F, verbose = F)
+
+kc_shp <- readOGR(dsn = "../data/geo/KCTract2010/KCTract2010.shp",
+                  layer = "KCTract2010",
+                  GDAL1_integer64_policy = TRUE,
+                  stringsAsFactors = F, verbose = F)
 
 #functions for widgets
 computeListings <- function(x){
@@ -104,7 +118,7 @@ compute90 <- function(x){
   summarize(n = n(),
             quant0.025 = prettyNum(round(quantile(cleanRent, .025)), big.mark = ","),
             medRent = prettyNum(round(median(cleanRent)), big.mark = ","),
-            quant0.975 = prettyNum(round(quantile(cleanRent, .025)), big.mark = ","),
+            quant0.975 = prettyNum(round(quantile(cleanRent, .975)), big.mark = ","),
             medRentPerSqft =prettyNum(round(median(cleanRent/cleanSqft), 2), big.mark = ","))
   return(y)
 }
@@ -116,6 +130,23 @@ aggTrends <- function(x){
     group_by(listingMoYr, catBeds) %>%
     summarize(medRent = median(cleanRent))
   return(y)
+}
+
+prepShape <- function(x, bed.type = "1", shp = NULL){
+  y <- cl %>%
+    filter(catBeds == bed.type) %>%
+    mutate(GEOID10 = as.character(GEOID10)) %>%
+    group_by(GEOID10) %>% 
+    summarize(n = n(),
+              medRent = median(cleanRent)) %>%
+    filter(n > 15)
+  
+  shp <- left_join(shp, y)
+  
+  #shp@data$id <- rownames(shp@data)
+  #shp@data <- left_join(shp@data, y)
+  #shp_f<-fortify(shp)
+  #shp_f<-inner_join(shp_f, shp@data,"id")
 }
 
 
@@ -209,7 +240,11 @@ DT::datatable(compute90(cl %>% filter(seattle == 1)),
               options = list(dom = 'Bfrtip',
                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
                              paging = F,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5))))
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
               
 ```
 
@@ -246,6 +281,20 @@ ggplotly(gg.agg_sea) %>%
 Maps  {data-navmenu="Seattle"}
 =====================================
 
+```{r, warning = FALSE}
+sea_map <- prepShape(x = cl, bed.type = "1", shp = sea_shp)
+
+pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
+
+leaflet(sea_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addTiles() %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent)) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = NULL,
+  position = "bottomright")
+```
 
 
 
@@ -268,7 +317,11 @@ DT::datatable(compute90(cl),
               options = list(dom = 'Bfrtip',
                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
                              paging = F,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5))))
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
 ```
 
 
@@ -305,7 +358,20 @@ ggplotly(gg.agg_kc) %>%
 Maps  {data-navmenu="King County"}
 =====================================
 
+```{r, warning = FALSE}
+kc_map <- prepShape(x = cl, bed.type = "1", shp = kc_shp)
 
+pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6) 
+
+leaflet(kc_map) %>%
+  setView(lng = -122.15, lat = 47.6308, zoom = 11) %>%
+  addTiles() %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent)) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = NULL,
+  position = "bottomright")
+```
 
 
 
