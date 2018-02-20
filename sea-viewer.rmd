@@ -10,6 +10,8 @@ output:
 library(flexdashboard)
 library(tidyverse)
 library(sqldf)
+library(dygraphs)
+library(imputeTS)
 
 #data
 DB <- dbConnect(SQLite(), dbname="../data/cl/craigslistDB.sqlite")
@@ -30,6 +32,10 @@ wash <- tract %>%
   filter(STATEFP10 == 53, COUNTYFP10 == 33) %>%
   collect
 
+#load other tables
+ds <- read_csv(file = "../data/d+s/city-level D+S.csv")
+
+#functions for widgets
 computeListings <- function(x){
   y <- x %>% 
     filter(listingDate %in% seq(Sys.Date()-30, Sys.Date(), by = 1)) %>%
@@ -38,6 +44,7 @@ computeListings <- function(x){
     summarize(median = median(n)) %>%
     pull(median)
   y <- prettyNum(y, big.mark = ",")
+  return(y)
 }
 
 computeKCMedian30 <- function(x){
@@ -46,6 +53,7 @@ computeKCMedian30 <- function(x){
     summarize(median = median(cleanRent)) %>%
     pull(median)
   y <- prettyNum(y, big.mark = ",")
+  return(y)
 }
 
 computeSeaMedian30 <- function(x){
@@ -55,7 +63,34 @@ computeSeaMedian30 <- function(x){
     summarize(median = median(cleanRent)) %>%
     pull(median)
   y <- prettyNum(y, big.mark = ",")
+  return(y)
 }
+
+#function for Overview graphic
+computeTS <- function(x){
+  y <- x %>%
+    filter(listingDate > "2017-02-06") %>%
+    group_by(listingDate) %>%
+    summarize(median = median(cleanRent))
+  
+ fullDates <- seq(from = min(y$listingDate), to = max(y$listingDate), by = 1)
+ index <- seq(from = 1, length.out = length(fullDates), by = 1)
+ dateTable <- cbind.data.frame(fullDates, index)
+ 
+ medRent <- NULL
+  for(i in 1:length(fullDates)){
+    if(fullDates[i] %in% y$listingDate){
+      medRent[i] <- y$median[y$listingDate == fullDates[i]]
+    } else{
+      medRent[i] <- NA
+    }
+  }
+  ts <- cbind.data.frame(medRent, fullDates)
+  ts <- na.interpolation(ts, option = "linear")
+  ts <- ts(ts$medRent, start = min(fullDates))
+  return(ts)
+}
+
 
 ```
 
@@ -65,12 +100,33 @@ Overview {data-icon="fa-home"}
 Row
 -------------------------------------
 
-### Welcome
+### Welcome!
 
 This website provides the latest information from the UW team's rental market database. 
 
 For more information, contact the project team at [searent@uw.edu](mailto://searent@uw.edu).
 
+Row
+-------------------------------------
+
+###
+
+```{r overview.ts, echo = FALSE}
+ts <- computeTS(cl)
+ts_sea <- computeTS(cl %>% filter(seattle == 1))
+
+ts <- cbind(ts_sea, ts)
+
+dygraph(ts, ylab = "Median Listing Rent") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")[c(2, 3)]) %>%
+  dySeries("ts_sea", label = "Seattle") %>%
+  dySeries("ts", label = "King County") %>%
+  dyRangeSelector(dateWindow = c(Sys.Date()-90, Sys.Date())) %>%
+  dyRoller(rollPeriod = 30) %>%
+  dyHighlight(highlightCircleSize = 5, 
+              highlightSeriesBackgroundAlpha = 0.25,
+              hideOnMouseOut = T) 
+```
 
 
 Row
@@ -78,42 +134,46 @@ Row
 
 ### Median listings per day (past 30 days)
 
-```{r list}
+```{r overview.list}
 listings <- computeListings(cl)
-valueBox(listings, icon = "fa-list")
+valueBox(listings, icon = "fa-building")
 ```
 
 ### King County median listing (past 30 days)
 
-```{r}
+```{r overview.kcmed}
 median <- computeKCMedian30(cl)
-valueBox(paste0("\U0024", median), icon = "fa-dollar-sign")
+valueBox(paste0("\U0024", median), color = RColorBrewer::brewer.pal(3, "Set1")[3],
+         icon = "fa-dollar")
 ```
 
 ### Seattle median listing (past 30 days) 
 
-```{r}
+```{r overview.seamed}
 median <- computeSeaMedian30(cl)
-valueBox(paste0("\U0024", median), icon = "fa-dollar-sign")
+valueBox(paste0("\U0024", median), icon = "fa-dollar")
 ```
 
 
-Rent levels {data-navmenu="County"}
+Rent levels {data-navmenu="King County"}
 =====================================
 
-Listing activity {data-navmenu="County"}
+
+
+
+Listing activity {data-navmenu="King County"}
 =====================================
 
-Rent levels {data-navmenu="City"}
+Rent levels {data-navmenu="Seattle"}
 =====================================
 
-Listing activity {data-navmenu="City"}
+Listing activity {data-navmenu="Seattle"}
 =====================================
 
-Rent levels {data-navmenu="Neighborhood"}
+Rent levels {data-navmenu="Neighborhoods"}
 =====================================
 
-Listing activity {data-navmenu="Neighborhood"}
+Listing activity {data-navmenu="Neighborhoods"}
 =====================================
 
 DataTable {data-icon="fa-table"}
