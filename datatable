@@ -1,0 +1,32 @@
+DataTable {data-icon="fa-table"}
+=====================================
+
+Row
+-------------------------------------
+
+### Inputs 
+
+```{r}
+selectInput("time", label = "Time Unit",
+            choices = c("Month" = "listingMoYr", "Year" = "listingYear"), selected = "Year")
+
+```
+
+### Table
+
+```{r}
+
+selectedData <- reactive({
+  cl %>%
+  group_by_(input$time) %>%
+  summarize(n = n(), 
+            medRent = median(cleanRent))
+})
+
+
+renderTable({
+  selectedData()
+})
+
+
+```

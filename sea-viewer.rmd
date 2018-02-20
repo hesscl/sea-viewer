@@ -3,6 +3,8 @@ title: "sea-viewer"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
+    theme: bootstrap
+    logo: logo.png
     source_code: "https://github.com/hesscl/sea-viewer"
 ---
 
@@ -12,6 +14,9 @@ library(tidyverse)
 library(sqldf)
 library(dygraphs)
 library(imputeTS)
+library(plotly)
+library(forecast)
+library(DT)
 
 #data
 DB <- dbConnect(SQLite(), dbname="../data/cl/craigslistDB.sqlite")
@@ -20,11 +25,13 @@ tract <- tbl(DB, "tract")
 
 #query the clean table, re-establish date classes, de-dupe
 cl <- clean %>% 
+  filter(listingDate > "2017-02-06") %>%
   collect %>% 
   mutate(listingDate = as.Date(listingDate),
          listingMoYr = as.Date(listingMoYr)) %>%
   mutate(catSqft = fct_reorder(catSqft, cleanSqft)) %>%
   filter(!is.na(cleanBeds), !is.na(cleanRent), !is.na(cleanSqft), !is.na(matchAddress)) %>%
+  filter(listingDate != Sys.Date()) %>% #since day-of is incomplete
   distinct(matchAddress, matchAddress2, catBeds, cleanRent, cleanSqft, .keep_all = T)
 
 #query the tract geography table
@@ -69,7 +76,6 @@ computeSeaMedian30 <- function(x){
 #function for Overview graphic
 computeTS <- function(x){
   y <- x %>%
-    filter(listingDate > "2017-02-06") %>%
     group_by(listingDate) %>%
     summarize(median = median(cleanRent))
   
@@ -91,10 +97,31 @@ computeTS <- function(x){
   return(ts)
 }
 
+compute90 <- function(x){
+  y <- x %>%
+  filter(listingDate %in% seq(Sys.Date()-91, Sys.Date()-1, 1)) %>%
+  group_by(catBeds) %>%
+  summarize(n = n(),
+            quant0.025 = prettyNum(round(quantile(cleanRent, .025)), big.mark = ","),
+            medRent = prettyNum(round(median(cleanRent)), big.mark = ","),
+            quant0.975 = prettyNum(round(quantile(cleanRent, .025)), big.mark = ","),
+            medRentPerSqft =prettyNum(round(median(cleanRent/cleanSqft), 2), big.mark = ","))
+  return(y)
+}
+
+
+aggTrends <- function(x){
+  y <- x %>%
+    filter(catBeds != "5+") %>%
+    group_by(listingMoYr, catBeds) %>%
+    summarize(medRent = median(cleanRent))
+  return(y)
+}
+
 
 ```
 
-Overview {data-icon="fa-home"}
+Home {data-icon="fa-home"}
 =====================================
 
 Row
@@ -102,14 +129,15 @@ Row
 
 ### Welcome!
 
-This website provides the latest information from the UW team's rental market database. 
+This website provides the latest information from the UW team's rental market database. The navigation bar provides access to detailed reports for Seattle, King County and specific neighborhoods.
 
-For more information, contact the project team at [searent@uw.edu](mailto://searent@uw.edu).
+Contact the project team at [searent@uw.edu](mailto://searent@uw.edu) for more information about this report or to suggest new features.
+
 
 Row
 -------------------------------------
 
-###
+### Overall median listing trends (30-day moving average)
 
 ```{r overview.ts, echo = FALSE}
 ts <- computeTS(cl)
@@ -117,64 +145,190 @@ ts_sea <- computeTS(cl %>% filter(seattle == 1))
 
 ts <- cbind(ts_sea, ts)
 
-dygraph(ts, ylab = "Median Listing Rent") %>%
+#dygrap of overall medians
+dygraph(ts, ylab = "Median Listing Rent ($)") %>%
   dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")[c(2, 3)]) %>%
   dySeries("ts_sea", label = "Seattle") %>%
   dySeries("ts", label = "King County") %>%
-  dyRangeSelector(dateWindow = c(Sys.Date()-90, Sys.Date())) %>%
+  dyRangeSelector(dateWindow = c(Sys.Date()-180, Sys.Date())) %>%
   dyRoller(rollPeriod = 30) %>%
   dyHighlight(highlightCircleSize = 5, 
-              highlightSeriesBackgroundAlpha = 0.25,
-              hideOnMouseOut = T) 
+              highlightSeriesBackgroundAlpha = 0.2,
+              hideOnMouseOut = T) %>%
+  dyUnzoom()
+```
+
+Row
+-------------------------------------
+
+### Seattle median listings/day (past 30 days)
+
+```{r overview.list}
+listings <- computeListings(cl %>% filter(seattle == 1))
+valueBox(listings,
+         color = "secondary",
+         icon = "fa-building")
+```
+
+### Seattle median listing rent (past 30 days) 
+
+```{r overview.seamed}
+median <- computeSeaMedian30(cl)
+valueBox(paste0("\U0024", median), 
+         color = "secondary",
+         icon = "fa-dollar")
+```
+
+### King County median listing rent (past 30 days)
+
+```{r overview.kcmed}
+median <- computeKCMedian30(cl)
+valueBox(paste0("\U0024", median),
+         color = "secondary",
+         icon = "fa-dollar")
+```
+
+
+
+Overview {data-navmenu="Seattle"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-Day Summary
+
+```{r}
+DT::datatable(compute90(cl %>% filter(seattle == 1)),
+              rownames = F,
+              caption = "Seattle Listings",
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F
+                             )
+              )
 ```
 
 
 Row
 -------------------------------------
 
-### Median listings per day (past 30 days)
+### Trend Analysis
 
-```{r overview.list}
-listings <- computeListings(cl)
-valueBox(listings, icon = "fa-building")
+
+```{r}
+agg_sea <- aggTrends(cl %>% filter(seattle == 1))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_sea <- ggplot(agg_sea, aes(x = listingMoYr, y = medRent, color = catBeds)) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n&nbsp;") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+ggplotly(gg.agg_sea) %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle)
 ```
 
-### King County median listing (past 30 days)
 
-```{r overview.kcmed}
-median <- computeKCMedian30(cl)
-valueBox(paste0("\U0024", median), color = RColorBrewer::brewer.pal(3, "Set1")[3],
-         icon = "fa-dollar")
+Maps  {data-navmenu="Seattle"}
+=====================================
+
+
+
+
+Overview  {data-navmenu="King County"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-Day Summary
+
+```{r}
+DT::datatable(compute90(cl),
+              rownames = F,
+              caption = "King County Listings",
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F
+                             )
+              )
 ```
 
-### Seattle median listing (past 30 days) 
 
-```{r overview.seamed}
-median <- computeSeaMedian30(cl)
-valueBox(paste0("\U0024", median), icon = "fa-dollar")
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r, }
+agg_kc <- aggTrends(cl)
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_kc <- ggplot(agg_kc, aes(x = listingMoYr, y = medRent, color = catBeds)) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Greens")[-1])
+
+ggplotly(gg.agg_kc) %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
 ```
 
 
-Rent levels {data-navmenu="King County"}
+Maps  {data-navmenu="King County"}
 =====================================
 
 
 
 
-Listing activity {data-navmenu="King County"}
+
+Neighborhoods
 =====================================
 
-Rent levels {data-navmenu="Seattle"}
+Row
+-------------------------------------
+
+### 90-Day Summary
+
+
+
+
+
+Dupre+Scott {data-navmenu="Historical"}
 =====================================
 
-Listing activity {data-navmenu="Seattle"}
+Census {data-navmenu="Historical"}
 =====================================
 
-Rent levels {data-navmenu="Neighborhoods"}
-=====================================
 
-Listing activity {data-navmenu="Neighborhoods"}
-=====================================
-
-DataTable {data-icon="fa-table"}
-=====================================
