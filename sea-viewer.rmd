@@ -4,7 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     theme: bootstrap
-    logo: logo.png
+    logo: logo.svg
     source_code: "https://github.com/hesscl/sea-viewer"
 ---
 
@@ -309,7 +309,7 @@ Maps  {data-navmenu="King County"}
 
 
 
-Ballard {data-navment="Neighborhoods"}
+Ballard {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
@@ -318,7 +318,7 @@ Row
 ### 90-day summary
 
 
-Belltown {data-navment="Neighborhoods"}
+Belltown {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
@@ -326,7 +326,7 @@ Row
 
 ### 90-day summary
 
-Capitol Hill {data-navment="Neighborhoods"}
+Capitol Hill {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
@@ -334,7 +334,7 @@ Row
 
 ### 90-day summary
 
-Downtown {data-navment="Neighborhoods"}
+Downtown {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
@@ -343,7 +343,7 @@ Row
 ### 90-day summary
 
 
-South Lake Union {data-navment="Neighborhoods"}
+South Lake Union {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
@@ -351,7 +351,7 @@ Row
 
 ### 90-day summary
 
-Northgate {data-navment="Neighborhoods"}
+Northgate {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
