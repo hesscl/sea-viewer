@@ -8,6 +8,7 @@ output:
     source_code: "https://github.com/hesscl/sea-viewer"
 ---
 
+
 ```{r setup, echo = FALSE, include = FALSE}
 library(flexdashboard)
 library(tidyverse)
@@ -61,6 +62,9 @@ neigh_shp <- readOGR(dsn = "../data/geo/neighborhoods/WGS84/neighborhoods.shp",
                   layer = "neighborhoods",
                   GDAL1_integer64_policy = TRUE,
                   stringsAsFactors = F, verbose = F)
+neigh_shp <- neigh_shp %>%
+  mutate(HOOD = ifelse(L_HOOD == "NO BROADER TERM", toupper(S_HOOD), L_HOOD))
+
 
 coordinates(cl) <- cbind(cl$lng, cl$lat)
 proj4string(cl) <- CRS("+proj=longlat +datum=WGS84")
@@ -69,7 +73,9 @@ neigh_shp <- spTransform(neigh_shp, CRS("+proj=longlat +datum=WGS84"))
 
 L_HOOD <- over(cl, neigh_shp[,"L_HOOD"])
 S_HOOD <- over(cl, neigh_shp[,"S_HOOD"])
-cl <- bind_cols(cl@data, L_HOOD, S_HOOD)
+HOOD <- over(cl, neigh_shp[,"HOOD"])
+cl <- bind_cols(cl@data, L_HOOD, S_HOOD, HOOD)
+
 
 #functions for widgets
 computeListings <- function(x){
@@ -145,15 +151,16 @@ aggTrends <- function(x){
     mutate(listingMoYr = as.Date(as.character(listingMoYr))) %>%
     group_by(listingMoYr, catBeds) %>%
     summarize(medRent = median(cleanRent),
-              n = n())
+              n = n()) %>%
+    filter(n >= 5)
   return(y)
 }
 
-prepShape <- function(x, bed.type = "1", shp = NULL){
+prepShape <- function(x, bed.type = "1", shp = NULL, group = "GEOID10"){
   y <- cl %>%
     filter(catBeds == bed.type) %>%
     mutate(GEOID10 = as.character(GEOID10)) %>%
-    group_by(GEOID10) %>% 
+    group_by_(group) %>% 
     summarize(n = n(),
               medRent = median(cleanRent)) %>%
     filter(n > 15)
@@ -582,11 +589,6 @@ leaflet(kc_map) %>%
 ```{r, kc.2Bmap, warning = FALSE}
 kc_map <- prepShape(x = cl, bed.type = "2", shp = kc_shp)
 
-labels <- sprintf(
-  "<strong>%s</strong><br/>Median 2B Rent: %g",
-  kc_map$NAMELSAD10, kc_map$medRent
-) %>% lapply(htmltools::HTML)
-
 pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6)
 
 labels <- sprintf(
@@ -650,6 +652,39 @@ leaflet(kc_map) %>%
   position = "bottomright")
 ```
 
+1B Map {data-navmenu="Neighborhoods"}
+=====================================
+
+```{r, neigh.1Bmap, warning = FALSE}
+neigh_map <- prepShape(x = cl, bed.type = "1", shp = neigh_shp, group = "HOOD")
+
+pal <- colorBin("Blues", domain = neigh_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 1B Rent: %g",
+  neigh_map$HOOD, neigh_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(neigh_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "1B Median Rent",
+  position = "bottomright")
+```
 
 
 Ballard {data-navmenu="Neighborhoods"}
@@ -1021,67 +1056,6 @@ ggplotly(gg.agg_down, tooltip = "text") %>%
 ```
 
 
-
-
-Interbay {data-navmenu="Neighborhoods"}
-=====================================
-
-Row
--------------------------------------
-
-### 90-day summary
-
-```{r interbay.90day}
-DT::datatable(compute90(cl %>% filter(L_HOOD == "INTERBAY")),
-              rownames = F,
-              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
-              class = "cell-border stripe",
-              style = "bootstrap",
-              autoHideNavigation = T,
-              extensions = 'Buttons', 
-              options = list(dom = 'Bfrtip',
-                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
-                             paging = F,
-                             searching = F,
-                             autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
-))
-              
-```
-
-Row
--------------------------------------
-
-### Trend Analysis
-
-```{r interbay.trend}
-agg_inter <- aggTrends(cl %>% filter(L_HOOD == "INTERBAY"))
-
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_inter <- ggplot(agg_inter, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_inter, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
-```
 
 
 Lake City {data-navmenu="Neighborhoods"}
