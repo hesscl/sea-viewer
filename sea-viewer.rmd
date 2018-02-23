@@ -13,6 +13,7 @@ library(flexdashboard)
 library(tidyverse)
 library(sqldf)
 library(dygraphs)
+library(lubridate)
 library(imputeTS)
 library(plotly)
 library(forecast)
@@ -55,6 +56,20 @@ kc_shp <- readOGR(dsn = "../data/geo/KCTract2010/KCTract2010.shp",
                   layer = "KCTract2010",
                   GDAL1_integer64_policy = TRUE,
                   stringsAsFactors = F, verbose = F)
+
+neigh_shp <- readOGR(dsn = "../data/geo/neighborhoods/WGS84/neighborhoods.shp",
+                  layer = "neighborhoods",
+                  GDAL1_integer64_policy = TRUE,
+                  stringsAsFactors = F, verbose = F)
+
+coordinates(cl) <- cbind(cl$lng, cl$lat)
+proj4string(cl) <- CRS("+proj=longlat +datum=WGS84")
+neigh_shp <- spTransform(neigh_shp, CRS("+proj=longlat +datum=WGS84"))
+
+
+L_HOOD <- over(cl, neigh_shp[,"L_HOOD"])
+S_HOOD <- over(cl, neigh_shp[,"S_HOOD"])
+cl <- bind_cols(cl@data, L_HOOD, S_HOOD)
 
 #functions for widgets
 computeListings <- function(x){
@@ -127,8 +142,10 @@ compute90 <- function(x){
 aggTrends <- function(x){
   y <- x %>%
     filter(catBeds != "5+") %>%
+    mutate(listingMoYr = as.Date(as.character(listingMoYr))) %>%
     group_by(listingMoYr, catBeds) %>%
-    summarize(medRent = median(cleanRent))
+    summarize(medRent = median(cleanRent),
+              n = n())
   return(y)
 }
 
@@ -229,7 +246,7 @@ Row
 
 ### 90-day summary for Seattle listings
 
-```{r}
+```{r sea.90day}
 DT::datatable(compute90(cl %>% filter(seattle == 1)),
               rownames = F,
               colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
@@ -254,7 +271,7 @@ Row
 
 ### Trend analysis
 
-```{r}
+```{r sea.trend}
 agg_sea <- aggTrends(cl %>% filter(seattle == 1))
 
 legendtitle <- list(yref='paper', 
@@ -264,38 +281,168 @@ legendtitle <- list(yref='paper',
                     text="Bedroom Size",
                     showarrow=F)
 
-gg.agg_sea <- ggplot(agg_sea, aes(x = listingMoYr, y = medRent, color = catBeds)) +
+gg.agg_sea <- ggplot(agg_sea, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
   geom_line() +
   xlab("\nMonth") +
   ylab("Median Listing Rent\n&nbsp;") +
   labs(color = "") +
   theme_minimal() +
+  guides(group = "none") +
   scale_y_continuous(labels = scales::dollar) +
   scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-ggplotly(gg.agg_sea) %>%
+ggplotly(gg.agg_sea, tooltip = "text") %>%
   layout(legend = list(x = .5, y = 1.1, orientation = "h"),
          annotations = legendtitle)
 ```
 
 
-Maps  {data-navmenu="Seattle"}
+0B Rent Map  {data-navmenu="Seattle"}
 =====================================
 
-```{r, warning = FALSE}
-sea_map <- prepShape(x = cl, bed.type = "1", shp = sea_shp)
+```{r, sea.0Bmap, warning = FALSE}
+sea_map <- prepShape(x = cl, bed.type = "0", shp = sea_shp)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 0B Rent: %g",
+  sea_map$NAMELSAD10, sea_map$medRent
+) %>% lapply(htmltools::HTML)
 
 pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
 
 leaflet(sea_map) %>%
   setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
               opacity = 1.0, fillOpacity = 0.5, 
-              fillColor = ~pal(medRent)) %>%
-  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = NULL,
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "0B Median Rent",
   position = "bottomright")
 ```
 
+
+1B Rent Map  {data-navmenu="Seattle"}
+=====================================
+
+```{r, sea.1Bmap, warning = FALSE}
+sea_map <- prepShape(x = cl, bed.type = "1", shp = sea_shp)
+
+pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 1B Rent: %g",
+  sea_map$NAMELSAD10, sea_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(sea_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "1B Median Rent",
+  position = "bottomright")
+```
+
+
+2B Rent Map  {data-navmenu="Seattle"}
+=====================================
+
+```{r, sea.2Bmap, warning = FALSE}
+sea_map <- prepShape(x = cl, bed.type = "2", shp = sea_shp)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 2B Rent: %g",
+  sea_map$NAMELSAD10, sea_map$medRent
+) %>% lapply(htmltools::HTML)
+
+pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 2B Rent: %g",
+  sea_map$NAMELSAD10, sea_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(sea_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
+  position = "bottomright")
+```
+
+
+3B Rent Map  {data-navmenu="Seattle"}
+=====================================
+
+```{r sea.3Bmap, warning = FALSE}
+sea_map <- prepShape(x = cl, bed.type = "3", shp = sea_shp)
+
+pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 3B Rent: %g",
+  sea_map$NAMELSAD10, sea_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(sea_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
+  position = "bottomright")
+```
 
 
 Overview  {data-navmenu="King County"}
@@ -306,7 +453,7 @@ Row
 
 ### 90-day summary for King County listings
 
-```{r}
+```{r kc.90day}
 DT::datatable(compute90(cl),
               rownames = F,
               colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
@@ -330,7 +477,7 @@ Row
 
 ### Trend analysis
 
-```{r, }
+```{r, kc.trend}
 agg_kc <- aggTrends(cl)
 
 legendtitle <- list(yref='paper', 
@@ -340,7 +487,11 @@ legendtitle <- list(yref='paper',
                     text="Bedroom Size",
                     showarrow=F)
 
-gg.agg_kc <- ggplot(agg_kc, aes(x = listingMoYr, y = medRent, color = catBeds)) +
+gg.agg_kc <- ggplot(agg_kc, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
   geom_line() +
   xlab("\nMonth") +
   ylab("Median Listing Rent\n") +
@@ -349,27 +500,153 @@ gg.agg_kc <- ggplot(agg_kc, aes(x = listingMoYr, y = medRent, color = catBeds)) 
   scale_y_continuous(labels = scales::dollar) +
   scale_color_manual(values = RColorBrewer::brewer.pal(6, "Greens")[-1])
 
-ggplotly(gg.agg_kc) %>%
+ggplotly(gg.agg_kc, tooltip = "text") %>%
   layout(legend = list(x = .5, y = 1.1, orientation = "h"),
          annotations = legendtitle) 
 ```
 
 
-Maps  {data-navmenu="King County"}
+0B Rent Map  {data-navmenu="King County"}
 =====================================
 
-```{r, warning = FALSE}
-kc_map <- prepShape(x = cl, bed.type = "1", shp = kc_shp)
+```{r, kc.0Bmap, warning = FALSE}
+kc_map <- prepShape(x = cl, bed.type = "0", shp = kc_shp)
 
-pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6) 
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 0B Rent: %g",
+  kc_map$NAMELSAD10, kc_map$medRent
+) %>% lapply(htmltools::HTML)
+
+pal <- colorBin("Blues", domain = kc_map@data$medRent, bins = 6)
 
 leaflet(kc_map) %>%
-  setView(lng = -122.15, lat = 47.6308, zoom = 11) %>%
-  addTiles() %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
               opacity = 1.0, fillOpacity = 0.5, 
-              fillColor = ~pal(medRent)) %>%
-  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = NULL,
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "0B Median Rent",
+  position = "bottomright")
+```
+
+
+1B Rent Map  {data-navmenu="King County"}
+=====================================
+
+```{r, kc.1Bmap, warning = FALSE}
+kc_map <- prepShape(x = cl, bed.type = "1", shp = kc_shp)
+
+pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 1B Rent: %g",
+  kc_map$NAMELSAD10, kc_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(kc_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "1B Median Rent",
+  position = "bottomright")
+```
+
+
+2B Rent Map  {data-navmenu="King County"}
+=====================================
+
+```{r, kc.2Bmap, warning = FALSE}
+kc_map <- prepShape(x = cl, bed.type = "2", shp = kc_shp)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 2B Rent: %g",
+  kc_map$NAMELSAD10, kc_map$medRent
+) %>% lapply(htmltools::HTML)
+
+pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 2B Rent: %g",
+  kc_map$NAMELSAD10, kc_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(kc_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
+  position = "bottomright")
+```
+
+
+3B Rent Map  {data-navmenu="King County"}
+=====================================
+
+```{r kc.3Bmap, warning = FALSE}
+kc_map <- prepShape(x = cl, bed.type = "3", shp = kc_shp)
+
+pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>Median 3B Rent: %g",
+  kc_map$NAMELSAD10, kc_map$medRent
+) %>% lapply(htmltools::HTML)
+
+leaflet(kc_map) %>%
+  setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, 
+              fillColor = ~pal(medRent),
+              highlight = highlightOptions(
+                              weight = 5,
+                              color = "#666",
+                              dashArray = "",
+                              fillOpacity = 0.7,
+                              bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")) %>%
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
   position = "bottomright")
 ```
 
@@ -383,14 +660,120 @@ Row
 
 ### 90-day summary
 
+```{r ballard.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "BALLARD")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
 
-Belltown {data-navmenu="Neighborhoods"}
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r ballard.trend}
+agg_ball <- aggTrends(cl %>% filter(L_HOOD == "BALLARD"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_ball <- ggplot(agg_ball, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_ball, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+
+Beacon Hill {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
 -------------------------------------
 
 ### 90-day summary
+
+```{r beacon.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "BEACON HILL")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r beacon.trend}
+agg_beac <- aggTrends(cl %>% filter(L_HOOD == "BEACON HILL"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_beac <- ggplot(agg_beac, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_beac, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
 
 Capitol Hill {data-navmenu="Neighborhoods"}
 =====================================
@@ -400,6 +783,183 @@ Row
 
 ### 90-day summary
 
+```{r capitol.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "CAPITOL HILL")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r capitol.trend}
+agg_cap <- aggTrends(cl %>% filter(L_HOOD == "CAPITOL HILL"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_cap <- ggplot(agg_cap, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_cap, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+Central District {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r central.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "CENTRAL AREA")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r central.trend}
+agg_cent <- aggTrends(cl %>% filter(L_HOOD == "CENTRAL AREA"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_cent <- ggplot(agg_cent, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_cent, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+Delridge {data-navmenu="Neighborhoods"}
+=====================================
+
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r delridge.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "DELRIDGE")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r delridge.trend}
+agg_del <- aggTrends(cl %>% filter(L_HOOD == "DELRIDGE"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_del <- ggplot(agg_del, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_del, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+
+
 Downtown {data-navmenu="Neighborhoods"}
 =====================================
 
@@ -408,14 +968,244 @@ Row
 
 ### 90-day summary
 
+```{r downtown.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "DOWNTOWN")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
 
-South Lake Union {data-navmenu="Neighborhoods"}
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r downtown.trend}
+agg_down <- aggTrends(cl %>% filter(L_HOOD == "DOWNTOWN"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_down <- ggplot(agg_down, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_down, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+
+
+Interbay {data-navmenu="Neighborhoods"}
 =====================================
 
 Row
 -------------------------------------
 
 ### 90-day summary
+
+```{r interbay.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "INTERBAY")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r interbay.trend}
+agg_inter <- aggTrends(cl %>% filter(L_HOOD == "INTERBAY"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_inter <- ggplot(agg_inter, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_inter, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+Lake City {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r lakecity.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "LAKE CITY")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r lakecity.trend}
+agg_lake <- aggTrends(cl %>% filter(L_HOOD == "LAKE CITY"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_lake <- ggplot(agg_lake, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_lake, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+Magnolia {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r magnolia.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "MAGNOLIA")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r magnolia.trend}
+agg_magnolia <- aggTrends(cl %>% filter(L_HOOD == "MAGNOLIA"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_magnolia <- ggplot(agg_magnolia, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_magnolia, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+
 
 Northgate {data-navmenu="Neighborhoods"}
 =====================================
@@ -424,6 +1214,361 @@ Row
 -------------------------------------
 
 ### 90-day summary
+
+```{r northgate.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "NORTHGATE")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r northgate.trend}
+agg_north <- aggTrends(cl %>% filter(L_HOOD == "NORTHGATE"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_north <- ggplot(agg_north, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_north, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+Queen Anne {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r queenanne.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "QUEEN ANNE")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r queenanne.trend}
+agg_queen <- aggTrends(cl %>% filter(L_HOOD == "QUEEN ANNE"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_queen <- ggplot(agg_queen, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_queen, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+Rainier Valley {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r rainier.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "RAINIER VALLEY")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r rainier.trend}
+agg_rainier <- aggTrends(cl %>% filter(L_HOOD == "RAINIER VALLEY"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_rainier <- ggplot(agg_rainier, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_rainier, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+Seward Park {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r seward.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "SEWARD PARK")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r seward.trend}
+agg_seward <- aggTrends(cl %>% filter(L_HOOD == "SEWARD PARK"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_seward <- ggplot(agg_seward, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_seward, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+University District {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r udistrict.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r udistrict.trend}
+agg_udist <- aggTrends(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_udist <- ggplot(agg_udist, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_udist, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
+
+West Seattle {data-navmenu="Neighborhoods"}
+=====================================
+
+Row
+-------------------------------------
+
+### 90-day summary
+
+```{r west.90day}
+DT::datatable(compute90(cl %>% filter(L_HOOD == "WEST SEATTLE")),
+              rownames = F,
+              colnames = c("Bedroom Size", "N Listings", "2.5% Quantile", "Median Rent", "97.5% Quantile", "Median Rent/Sqft"),
+              class = "cell-border stripe",
+              style = "bootstrap",
+              autoHideNavigation = T,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                             paging = F,
+                             searching = F,
+                             autoWidth = T,
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
+                                                    width = "16.66%"))
+))
+              
+```
+
+Row
+-------------------------------------
+
+### Trend Analysis
+
+```{r west.trend}
+agg_west <- aggTrends(cl %>% filter(L_HOOD == "WEST SEATTLE"))
+
+legendtitle <- list(yref='paper', 
+                    xref="paper", 
+                    y=1.09, 
+                    x=.42, 
+                    text="Bedroom Size",
+                    showarrow=F)
+
+gg.agg_west <- ggplot(agg_west, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
+                                  text = paste('Bedroom Size:', catBeds,
+                                               '<br>Rent ($):', medRent,
+                                               '<br>Date: ', as.Date(listingMoYr),
+                                               '<br>Obs: ', n))) +
+  geom_line() +
+  xlab("\nMonth") +
+  ylab("Median Listing Rent\n") +
+  labs(color = "") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
+
+ggplotly(gg.agg_west, tooltip = "text") %>%
+  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
+         annotations = legendtitle) 
+```
+
 
 
 
