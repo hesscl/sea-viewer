@@ -21,6 +21,7 @@ library(forecast)
 library(rgdal)
 library(leaflet)
 library(spdplyr)
+library(zoo)
 library(DT)
 
 #data
@@ -44,9 +45,6 @@ wash <- tract %>%
   filter(STATEFP10 == 53, COUNTYFP10 == 33) %>%
   collect
 
-#load other tables
-ds <- read_csv(file = "../data/d+s/city-level D+S.csv")
-
 #load shapefiles
 sea_shp <- readOGR(dsn = "../data/geo/sea_tract_2010/sea_tract_2010.shp",
                layer = "sea_tract_2010",
@@ -65,17 +63,16 @@ neigh_shp <- readOGR(dsn = "../data/geo/neighborhoods/WGS84/neighborhoods.shp",
 neigh_shp <- neigh_shp %>%
   mutate(HOOD = ifelse(L_HOOD == "NO BROADER TERM", toupper(S_HOOD), L_HOOD))
 
-
+#prep `cl` and `neigh_shp` for spatial intersect
 coordinates(cl) <- cbind(cl$lng, cl$lat)
 proj4string(cl) <- CRS("+proj=longlat +datum=WGS84")
 neigh_shp <- spTransform(neigh_shp, CRS("+proj=longlat +datum=WGS84"))
 
-
+#append clerk's office neigh defs
 L_HOOD <- over(cl, neigh_shp[,"L_HOOD"])
 S_HOOD <- over(cl, neigh_shp[,"S_HOOD"])
 HOOD <- over(cl, neigh_shp[,"HOOD"])
 cl <- bind_cols(cl@data, L_HOOD, S_HOOD, HOOD)
-
 
 #functions for widgets
 computeListings <- function(x){
@@ -144,7 +141,6 @@ compute90 <- function(x){
   return(y)
 }
 
-
 aggTrends <- function(x){
   y <- x %>%
     filter(catBeds != "5+") %>%
@@ -171,6 +167,11 @@ prepShape <- function(x, bed.type = "1", shp = NULL, group = "GEOID10"){
   #shp@data <- left_join(shp@data, y)
   #shp_f<-fortify(shp)
   #shp_f<-inner_join(shp_f, shp@data,"id")
+}
+
+dsTrends <- function(x){
+  y <- x %>%
+    group_by(ro)
 }
 
 
@@ -1543,13 +1544,5 @@ ggplotly(gg.agg_west, tooltip = "text") %>%
          annotations = legendtitle) 
 ```
 
-
-
-
-Dupre+Scott {data-navmenu="Historical"}
-=====================================
-
-Census {data-navmenu="Historical"}
-=====================================
 
 
