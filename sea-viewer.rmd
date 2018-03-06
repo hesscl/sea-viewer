@@ -149,8 +149,7 @@ aggTrends <- function(x){
     mutate(listingMoYr = as.Date(as.character(listingMoYr))) %>%
     group_by(listingMoYr, catBeds) %>%
     summarize(medRent = median(cleanRent),
-              n = n()) %>%
-    filter(n >= 5)
+              n = n())
   return(y)
 }
 
@@ -170,6 +169,14 @@ ts_thm <- hc_theme_merge(
   hc_theme_google(),
   hc_theme(colors = RColorBrewer::brewer.pal(3, "Set1")[-1]))
 
+sea_thm <- hc_theme_merge(
+  hc_theme_google(),
+  hc_theme(colors = RColorBrewer::brewer.pal(5, "Blues")[-1]))
+
+kc_thm <- hc_theme_merge(
+  hc_theme_google(),
+  hc_theme(colors = RColorBrewer::brewer.pal(5, "Greens")[-1]))
+
 ```
 
 Home {data-icon="fa-home"}
@@ -188,7 +195,7 @@ Contact the project team at [searent@uw.edu](mailto://searent@uw.edu) for more i
 Row
 -------------------------------------
 
-### Overall median listing trends (30-day moving average)
+### Overall median listing trends (30-day rolling average)
 
 ```{r overview.ts, echo = FALSE, warning = F, message = F, dpi = 300}
 ts <- computeTS(cl)
@@ -200,12 +207,14 @@ ts_sea <- xts(rollapply(as.zoo(ts_sea), FUN = mean, 30, na.rm = T, partial = T))
 mts <- cbind(ts_sea, ts)
 
 highchart() %>%
+  hc_yAxis(title = list(text = "Median Listing Rent"), opposite = F) %>%
   hc_xAxis(date = seq(min(date(mts)), max(date(mts)), 1) %>% as_datetime) %>% 
   hc_add_series_xts(mts[,1], name = "Seattle") %>%
   hc_add_series_xts(mts[,2], name = "King County") %>%
-  hc_tooltip(pointFormat = "<b>{series.name}</b> <br> Rent: {point.y:,.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name}</b> <br> Rent: {point.y:%.0f}") %>%
   hc_add_theme(ts_thm) %>%
-  hc_exporting(enabled = TRUE)
+  hc_exporting(enabled = TRUE) %>%
+  hc_rangeSelector(selected = 1)
 
 ```
 
@@ -275,31 +284,16 @@ Row
 ### Trend analysis
 
 ```{r sea.trend}
-agg_sea <- aggTrends(cl %>% filter(seattle == 1))
+agg_sea <- aggTrends(cl %>% filter(seattle == 1, catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
+hchart(agg_sea, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 
-gg.agg_sea <- ggplot(agg_sea, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n&nbsp;") +
-  labs(color = "") +
-  theme_minimal() +
-  guides(group = "none") +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-ggplotly(gg.agg_sea, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle)
 ```
 
 
@@ -481,31 +475,15 @@ Row
 ### Trend analysis
 
 ```{r, kc.trend}
-agg_kc <- aggTrends(cl)
+agg_kc <- aggTrends(cl %>% filter(catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_kc <- ggplot(agg_kc, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Greens")[-1])
-
-ggplotly(gg.agg_kc, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_kc, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(kc_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:,.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -716,31 +694,15 @@ Row
 ### Trend Analysis
 
 ```{r ballard.trend}
-agg_ball <- aggTrends(cl %>% filter(L_HOOD == "BALLARD"))
+agg_ball <- aggTrends(cl %>% filter(L_HOOD == "BALLARD", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_ball <- ggplot(agg_ball, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_ball, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_ball, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -778,31 +740,15 @@ Row
 ### Trend Analysis
 
 ```{r beacon.trend}
-agg_beac <- aggTrends(cl %>% filter(L_HOOD == "BEACON HILL"))
+agg_beac <- aggTrends(cl %>% filter(L_HOOD == "BEACON HILL", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_beac <- ggplot(agg_beac, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_beac, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_beac, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -839,31 +785,15 @@ Row
 ### Trend Analysis
 
 ```{r capitol.trend}
-agg_cap <- aggTrends(cl %>% filter(L_HOOD == "CAPITOL HILL"))
+agg_cap <- aggTrends(cl %>% filter(L_HOOD == "CAPITOL HILL", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_cap <- ggplot(agg_cap, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_cap, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_cap, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 Central District {data-navmenu="Neighborhoods"}
@@ -899,31 +829,15 @@ Row
 ### Trend Analysis
 
 ```{r central.trend}
-agg_cent <- aggTrends(cl %>% filter(L_HOOD == "CENTRAL AREA"))
+agg_cent <- aggTrends(cl %>% filter(L_HOOD == "CENTRAL AREA", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_cent <- ggplot(agg_cent, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_cent, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_cent, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -961,31 +875,15 @@ Row
 ### Trend Analysis
 
 ```{r delridge.trend}
-agg_del <- aggTrends(cl %>% filter(L_HOOD == "DELRIDGE"))
+agg_del <- aggTrends(cl %>% filter(L_HOOD == "DELRIDGE", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_del <- ggplot(agg_del, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_del, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_del, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -1024,31 +922,15 @@ Row
 ### Trend Analysis
 
 ```{r downtown.trend}
-agg_down <- aggTrends(cl %>% filter(L_HOOD == "DOWNTOWN"))
+agg_down <- aggTrends(cl %>% filter(L_HOOD == "DOWNTOWN", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_down <- ggplot(agg_down, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_down, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_down, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -1087,31 +969,15 @@ Row
 ### Trend Analysis
 
 ```{r lakecity.trend}
-agg_lake <- aggTrends(cl %>% filter(L_HOOD == "LAKE CITY"))
+agg_lake <- aggTrends(cl %>% filter(L_HOOD == "LAKE CITY", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_lake <- ggplot(agg_lake, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_lake, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_lake, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 Magnolia {data-navmenu="Neighborhoods"}
@@ -1147,31 +1013,15 @@ Row
 ### Trend Analysis
 
 ```{r magnolia.trend}
-agg_magnolia <- aggTrends(cl %>% filter(L_HOOD == "MAGNOLIA"))
+agg_magnolia <- aggTrends(cl %>% filter(L_HOOD == "MAGNOLIA", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_magnolia <- ggplot(agg_magnolia, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_magnolia, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_magnolia, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -1210,31 +1060,15 @@ Row
 ### Trend Analysis
 
 ```{r northgate.trend}
-agg_north <- aggTrends(cl %>% filter(L_HOOD == "NORTHGATE"))
+agg_north <- aggTrends(cl %>% filter(L_HOOD == "NORTHGATE", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_north <- ggplot(agg_north, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_north, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_north, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 
@@ -1271,31 +1105,15 @@ Row
 ### Trend Analysis
 
 ```{r queenanne.trend}
-agg_queen <- aggTrends(cl %>% filter(L_HOOD == "QUEEN ANNE"))
+agg_queen <- aggTrends(cl %>% filter(L_HOOD == "QUEEN ANNE", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_queen <- ggplot(agg_queen, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_queen, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_queen, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE)
 ```
 
 Rainier Valley {data-navmenu="Neighborhoods"}
@@ -1331,31 +1149,15 @@ Row
 ### Trend Analysis
 
 ```{r rainier.trend}
-agg_rainier <- aggTrends(cl %>% filter(L_HOOD == "RAINIER VALLEY"))
+agg_rainier <- aggTrends(cl %>% filter(L_HOOD == "RAINIER VALLEY", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_rainier <- ggplot(agg_rainier, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_rainier, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_rainier, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE) 
 ```
 
 Seward Park {data-navmenu="Neighborhoods"}
@@ -1391,31 +1193,15 @@ Row
 ### Trend Analysis
 
 ```{r seward.trend}
-agg_seward <- aggTrends(cl %>% filter(L_HOOD == "SEWARD PARK"))
+agg_seward <- aggTrends(cl %>% filter(L_HOOD == "SEWARD PARK", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_seward <- ggplot(agg_seward, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_seward, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_sweard, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE) 
 ```
 
 University District {data-navmenu="Neighborhoods"}
@@ -1451,31 +1237,15 @@ Row
 ### Trend Analysis
 
 ```{r udistrict.trend}
-agg_udist <- aggTrends(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT"))
+agg_udist <- aggTrends(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_udist <- ggplot(agg_udist, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_udist, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_udist, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE) 
 ```
 
 
@@ -1512,31 +1282,15 @@ Row
 ### Trend Analysis
 
 ```{r west.trend}
-agg_west <- aggTrends(cl %>% filter(L_HOOD == "WEST SEATTLE"))
+agg_west <- aggTrends(cl %>% filter(L_HOOD == "WEST SEATTLE", catBeds %in% c("0", "1", "2", "3")))
 
-legendtitle <- list(yref='paper', 
-                    xref="paper", 
-                    y=1.09, 
-                    x=.42, 
-                    text="Bedroom Size",
-                    showarrow=F)
-
-gg.agg_west <- ggplot(agg_west, aes(x = listingMoYr, y = medRent, color = catBeds, group = catBeds,
-                                  text = paste('Bedroom Size:', catBeds,
-                                               '<br>Rent ($):', medRent,
-                                               '<br>Date: ', as.Date(listingMoYr),
-                                               '<br>Obs: ', n))) +
-  geom_line() +
-  xlab("\nMonth") +
-  ylab("Median Listing Rent\n") +
-  labs(color = "") +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(6, "Blues")[-1])
-
-ggplotly(gg.agg_west, tooltip = "text") %>%
-  layout(legend = list(x = .5, y = 1.1, orientation = "h"),
-         annotations = legendtitle) 
+hchart(agg_west, type = "line",
+       hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
+  hc_yAxis(title = list(text = "Median Listing Rent")) %>%
+  hc_xAxis(title = list(text = "Month")) %>%
+  hc_add_theme(sea_thm)  %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_exporting(enabled = TRUE) 
 ```
 
 
