@@ -17,6 +17,8 @@ library(dygraphs)
 library(lubridate)
 library(imputeTS)
 library(plotly)
+library(xts)
+library(highcharter)
 library(forecast)
 library(rgdal)
 library(leaflet)
@@ -38,7 +40,7 @@ cl <- clean %>%
   mutate(catSqft = fct_reorder(catSqft, cleanSqft)) %>%
   filter(!is.na(cleanBeds), !is.na(cleanRent), !is.na(cleanSqft), !is.na(matchAddress)) %>%
   filter(listingDate != Sys.Date()) %>% #since day-of is incomplete
-  distinct(matchAddress, matchAddress2, catBeds, cleanRent, cleanSqft, .keep_all = T)
+  distinct(matchAddress, matchAddress2, cleanBeds, cleanRent, cleanSqft, .keep_all = T)
 
 #query the tract geography table
 wash <- tract %>%
@@ -125,7 +127,7 @@ computeTS <- function(x){
   }
   ts <- cbind.data.frame(medRent, fullDates)
   ts <- na.interpolation(ts, option = "linear")
-  ts <- ts(ts$medRent, start = min(fullDates))
+  ts <- zoo(ts$medRent, order.by = fullDates) %>% as.xts
   return(ts)
 }
 
@@ -162,18 +164,11 @@ prepShape <- function(x, bed.type = "1", shp = NULL, group = "GEOID10"){
     filter(n > 15)
   
   shp <- left_join(shp, y)
-  
-  #shp@data$id <- rownames(shp@data)
-  #shp@data <- left_join(shp@data, y)
-  #shp_f<-fortify(shp)
-  #shp_f<-inner_join(shp_f, shp@data,"id")
 }
 
-dsTrends <- function(x){
-  y <- x %>%
-    group_by(ro)
-}
-
+ts_thm <- hc_theme_merge(
+  hc_theme_google(),
+  hc_theme(colors = RColorBrewer::brewer.pal(3, "Set1")[-1]))
 
 ```
 
@@ -195,23 +190,23 @@ Row
 
 ### Overall median listing trends (30-day moving average)
 
-```{r overview.ts, echo = FALSE}
+```{r overview.ts, echo = FALSE, warning = F, message = F, dpi = 300}
 ts <- computeTS(cl)
 ts_sea <- computeTS(cl %>% filter(seattle == 1))
 
-ts <- cbind(ts_sea, ts)
+ts <- xts(rollapply(as.zoo(ts), FUN = mean, 30, na.rm = T, partial = T))
+ts_sea <- xts(rollapply(as.zoo(ts_sea), FUN = mean, 30, na.rm = T, partial = T))
 
-#dygrap of overall medians
-dygraph(ts, ylab = "Median Listing Rent ($)") %>%
-  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")[c(2, 3)]) %>%
-  dySeries("ts_sea", label = "Seattle") %>%
-  dySeries("ts", label = "King County") %>%
-  dyRangeSelector(dateWindow = c(Sys.Date()-180, Sys.Date())) %>%
-  dyRoller(rollPeriod = 30) %>%
-  dyHighlight(highlightCircleSize = 5, 
-              highlightSeriesBackgroundAlpha = 0.2,
-              hideOnMouseOut = T) %>%
-  dyUnzoom()
+mts <- cbind(ts_sea, ts)
+
+highchart() %>%
+  hc_xAxis(date = seq(min(date(mts)), max(date(mts)), 1) %>% as_datetime) %>% 
+  hc_add_series_xts(mts[,1], name = "Seattle") %>%
+  hc_add_series_xts(mts[,2], name = "King County") %>%
+  hc_tooltip(pointFormat = "<b>{series.name}</b> <br> Rent: {point.y:,.0f}") %>%
+  hc_add_theme(ts_thm) %>%
+  hc_exporting(enabled = TRUE)
+
 ```
 
 Row
