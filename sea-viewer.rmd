@@ -195,7 +195,7 @@ Contact the project team at [searent@uw.edu](mailto://searent@uw.edu) for more i
 Row
 -------------------------------------
 
-### Overall median listing trends (30-day rolling average)
+### Daily median rent time-series (30-day rolling average)
 
 ```{r overview.ts, echo = FALSE, warning = F, message = F, dpi = 300}
 ts <- computeTS(cl)
@@ -213,8 +213,7 @@ highchart() %>%
   hc_add_series_xts(mts[,2], name = "King County") %>%
   hc_tooltip(pointFormat = "<b>{series.name}</b> <br> Rent: {point.y:%.0f}") %>%
   hc_add_theme(ts_thm) %>%
-  hc_exporting(enabled = TRUE) %>%
-  hc_rangeSelector(selected = 1)
+  hc_exporting(enabled = TRUE)
 
 ```
 
@@ -291,7 +290,7 @@ hchart(agg_sea, type = "line",
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 
 ```
@@ -437,7 +436,7 @@ leaflet(sea_map) %>%
                                     style = list("font-weight" = "normal", padding = "3px 8px"),
                                     textsize = "15px",
                                     direction = "auto")) %>%
-  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "3B Median Rent",
   position = "bottomright")
 ```
 
@@ -482,7 +481,7 @@ hchart(agg_kc, type = "line",
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(kc_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:,.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -622,7 +621,7 @@ leaflet(kc_map) %>%
                                     style = list("font-weight" = "normal", padding = "3px 8px"),
                                     textsize = "15px",
                                     direction = "auto")) %>%
-  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "2B Median Rent",
+  addLegend(pal = pal, values = ~medRent, opacity = 0.7, title = "3B Median Rent",
   position = "bottomright")
 ```
 
@@ -694,14 +693,14 @@ Row
 ### Trend Analysis
 
 ```{r ballard.trend}
-agg_ball <- aggTrends(cl %>% filter(L_HOOD == "BALLARD", catBeds %in% c("0", "1", "2", "3")))
+agg_ball <- aggTrends(cl %>% filter(L_HOOD == "BALLARD", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_ball, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -740,14 +739,14 @@ Row
 ### Trend Analysis
 
 ```{r beacon.trend}
-agg_beac <- aggTrends(cl %>% filter(L_HOOD == "BEACON HILL", catBeds %in% c("0", "1", "2", "3")))
+agg_beac <- aggTrends(cl %>% filter(L_HOOD == "BEACON HILL", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_beac, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -785,14 +784,14 @@ Row
 ### Trend Analysis
 
 ```{r capitol.trend}
-agg_cap <- aggTrends(cl %>% filter(L_HOOD == "CAPITOL HILL", catBeds %in% c("0", "1", "2", "3")))
+agg_cap <- aggTrends(cl %>% filter(L_HOOD == "CAPITOL HILL", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_cap, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -829,14 +828,14 @@ Row
 ### Trend Analysis
 
 ```{r central.trend}
-agg_cent <- aggTrends(cl %>% filter(L_HOOD == "CENTRAL AREA", catBeds %in% c("0", "1", "2", "3")))
+agg_cent <- aggTrends(cl %>% filter(L_HOOD == "CENTRAL AREA", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_cent, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -875,14 +874,14 @@ Row
 ### Trend Analysis
 
 ```{r delridge.trend}
-agg_del <- aggTrends(cl %>% filter(L_HOOD == "DELRIDGE", catBeds %in% c("0", "1", "2", "3")))
+agg_del <- aggTrends(cl %>% filter(L_HOOD == "DELRIDGE", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_del, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -922,14 +921,14 @@ Row
 ### Trend Analysis
 
 ```{r downtown.trend}
-agg_down <- aggTrends(cl %>% filter(L_HOOD == "DOWNTOWN", catBeds %in% c("0", "1", "2", "3")))
+agg_down <- aggTrends(cl %>% filter(L_HOOD == "DOWNTOWN", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_down, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -969,14 +968,14 @@ Row
 ### Trend Analysis
 
 ```{r lakecity.trend}
-agg_lake <- aggTrends(cl %>% filter(L_HOOD == "LAKE CITY", catBeds %in% c("0", "1", "2", "3")))
+agg_lake <- aggTrends(cl %>% filter(L_HOOD == "LAKE CITY", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_lake, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -1013,14 +1012,14 @@ Row
 ### Trend Analysis
 
 ```{r magnolia.trend}
-agg_magnolia <- aggTrends(cl %>% filter(L_HOOD == "MAGNOLIA", catBeds %in% c("0", "1", "2", "3")))
+agg_magnolia <- aggTrends(cl %>% filter(L_HOOD == "MAGNOLIA", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_magnolia, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -1060,14 +1059,14 @@ Row
 ### Trend Analysis
 
 ```{r northgate.trend}
-agg_north <- aggTrends(cl %>% filter(L_HOOD == "NORTHGATE", catBeds %in% c("0", "1", "2", "3")))
+agg_north <- aggTrends(cl %>% filter(L_HOOD == "NORTHGATE", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_north, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -1105,14 +1104,14 @@ Row
 ### Trend Analysis
 
 ```{r queenanne.trend}
-agg_queen <- aggTrends(cl %>% filter(L_HOOD == "QUEEN ANNE", catBeds %in% c("0", "1", "2", "3")))
+agg_queen <- aggTrends(cl %>% filter(L_HOOD == "QUEEN ANNE", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_queen, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE)
 ```
 
@@ -1149,14 +1148,14 @@ Row
 ### Trend Analysis
 
 ```{r rainier.trend}
-agg_rainier <- aggTrends(cl %>% filter(L_HOOD == "RAINIER VALLEY", catBeds %in% c("0", "1", "2", "3")))
+agg_rainier <- aggTrends(cl %>% filter(L_HOOD == "RAINIER VALLEY", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_rainier, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE) 
 ```
 
@@ -1195,12 +1194,12 @@ Row
 ```{r seward.trend}
 agg_seward <- aggTrends(cl %>% filter(L_HOOD == "SEWARD PARK", catBeds %in% c("0", "1", "2", "3")))
 
-hchart(agg_sweard, type = "line",
+hchart(agg_seward, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE) 
 ```
 
@@ -1237,14 +1236,14 @@ Row
 ### Trend Analysis
 
 ```{r udistrict.trend}
-agg_udist <- aggTrends(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT", catBeds %in% c("0", "1", "2", "3")))
+agg_udist <- aggTrends(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_udist, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE) 
 ```
 
@@ -1282,14 +1281,14 @@ Row
 ### Trend Analysis
 
 ```{r west.trend}
-agg_west <- aggTrends(cl %>% filter(L_HOOD == "WEST SEATTLE", catBeds %in% c("0", "1", "2", "3")))
+agg_west <- aggTrends(cl %>% filter(L_HOOD == "WEST SEATTLE", catBeds %in% c("0", "1", "2")))
 
 hchart(agg_west, type = "line",
        hcaes(x = listingMoYr, y = medRent, group = catBeds)) %>%
   hc_yAxis(title = list(text = "Median Listing Rent")) %>%
   hc_xAxis(title = list(text = "Month")) %>%
   hc_add_theme(sea_thm)  %>%
-  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f}") %>%
+  hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> Rent: {point.y:%.0f} <br> N Listings: {point.n}") %>%
   hc_exporting(enabled = TRUE) 
 ```
 
