@@ -495,7 +495,7 @@ labels <- sprintf(
   kc_map$NAMELSAD10, kc_map$medRent
 ) %>% lapply(htmltools::HTML)
 
-pal <- colorBin("Blues", domain = kc_map@data$medRent, bins = 6)
+pal <- colorBin("Greens", domain = kc_map@data$medRent, bins = 6)
 
 leaflet(kc_map) %>%
   setView(lng = -122.332460, lat = 47.610629, zoom = 11) %>%
