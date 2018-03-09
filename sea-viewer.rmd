@@ -270,8 +270,7 @@ DT::datatable(compute90(cl %>% filter(seattle == 1)),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -462,8 +461,7 @@ DT::datatable(compute90(cl),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
 ```
 
@@ -681,8 +679,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "BALLARD")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -727,8 +724,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "BEACON HILL")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -772,8 +768,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "CAPITOL HILL")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -816,8 +811,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "CENTRAL AREA")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -862,8 +856,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "DELRIDGE")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -909,8 +902,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "DOWNTOWN")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -956,8 +948,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "LAKE CITY")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1000,8 +991,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "MAGNOLIA")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1047,8 +1037,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "NORTHGATE")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1092,8 +1081,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "QUEEN ANNE")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1136,8 +1124,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "RAINIER VALLEY")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1180,8 +1167,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "SEWARD PARK")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1224,8 +1210,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "UNIVERSITY DISTRICT")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
@@ -1269,8 +1254,7 @@ DT::datatable(compute90(cl %>% filter(L_HOOD == "WEST SEATTLE")),
                              paging = F,
                              searching = F,
                              autoWidth = T,
-                             columnDefs = list(list(className = 'dt-right', targets = 1:5,
-                                                    width = "16.66%"))
+                             columnDefs = list(list(className = 'dt-right', targets = 1:5))
 ))
               
 ```
