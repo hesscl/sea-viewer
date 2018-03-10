@@ -35,4 +35,6 @@ vignettes/*.pdf
 # output
 *.html
 
+pscp.txt
+
 **/archive/**
