@@ -40,6 +40,7 @@ cl <- clean %>%
   mutate(catSqft = fct_reorder(catSqft, cleanSqft)) %>%
   filter(!is.na(cleanBeds), !is.na(cleanRent), !is.na(cleanSqft), !is.na(matchAddress)) %>%
   filter(listingDate != Sys.Date()) %>% #since day-of is incomplete
+  arrange(desc(listingDate)) %>%
   distinct(matchAddress, matchAddress2, cleanBeds, cleanRent, cleanSqft, .keep_all = T)
 
 #query the tract geography table
