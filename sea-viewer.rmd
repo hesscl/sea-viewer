@@ -8,7 +8,6 @@ output:
     source_code: "https://github.com/hesscl/sea-viewer"
 ---
 
-
 ```{r setup, echo = FALSE, include = FALSE}
 library(flexdashboard)
 library(tidyverse)
@@ -40,13 +39,15 @@ cl <- clean %>%
   mutate(catSqft = fct_reorder(catSqft, cleanSqft)) %>%
   filter(!is.na(cleanBeds), !is.na(cleanRent), !is.na(cleanSqft), !is.na(matchAddress)) %>%
   filter(listingDate != Sys.Date()) %>% #since day-of is incomplete
+  select(-GEOID10) %>%
   arrange(desc(listingDate)) %>%
   distinct(matchAddress, matchAddress2, cleanBeds, cleanRent, cleanSqft, .keep_all = T)
 
+
 #query the tract geography table
 wash <- tract %>%
-  filter(STATEFP10 == 53, COUNTYFP10 == 33) %>%
-  collect
+  collect %>%
+  filter(STATEFP10 == "53", COUNTYFP10 == "033")
 
 #load shapefiles
 sea_shp <- readOGR(dsn = "../data/geo/sea_tract_2010/sea_tract_2010.shp",
@@ -70,6 +71,8 @@ neigh_shp <- neigh_shp %>%
 coordinates(cl) <- cbind(cl$lng, cl$lat)
 proj4string(cl) <- CRS("+proj=longlat +datum=WGS84")
 neigh_shp <- spTransform(neigh_shp, CRS("+proj=longlat +datum=WGS84"))
+sea_shp <- spTransform(sea_shp, CRS("+proj=longlat +datum=WGS84"))
+kc_shp <- spTransform(kc_shp, CRS("+proj=longlat +datum=WGS84"))
 
 #append clerk's office neigh defs
 L_HOOD <- over(cl, neigh_shp[,"L_HOOD"])
@@ -112,6 +115,7 @@ computeSeaMedian30 <- function(x){
 computeTS <- function(x){
   y <- x %>%
     group_by(listingDate) %>%
+    filter(cleanBeds == 1) %>%
     summarize(median = median(cleanRent))
   
  fullDates <- seq(from = min(y$listingDate), to = max(y$listingDate), by = 1)
@@ -154,10 +158,10 @@ aggTrends <- function(x){
   return(y)
 }
 
-prepShape <- function(x, bed.type = "1", shp = NULL, group = "GEOID10"){
+prepShape <- function(x, bed.type = "1", shp = NULL, group = "GISJOIN"){
   y <- cl %>%
     filter(catBeds == bed.type) %>%
-    mutate(GEOID10 = as.character(GEOID10)) %>%
+    mutate(GISJOIN = as.character(GISJOIN)) %>%
     group_by_(group) %>% 
     summarize(n = n(),
               medRent = median(cleanRent)) %>%
@@ -177,7 +181,6 @@ sea_thm <- hc_theme_merge(
 kc_thm <- hc_theme_merge(
   hc_theme_google(),
   hc_theme(colors = RColorBrewer::brewer.pal(5, "Greens")[-1]))
-
 ```
 
 Home {data-icon="fa-home"}
@@ -196,7 +199,7 @@ Contact the project team at [searent@uw.edu](mailto://searent@uw.edu) for more i
 Row
 -------------------------------------
 
-### Daily median rent time-series (30-day rolling average)
+### Daily 1-bedroom median rent time-series (30-day rolling average)
 
 ```{r overview.ts, echo = FALSE, warning = F, message = F, dpi = 300}
 ts <- computeTS(cl)
@@ -318,7 +321,6 @@ leaflet(sea_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -353,7 +355,6 @@ leaflet(sea_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -372,11 +373,6 @@ leaflet(sea_map) %>%
 ```{r, sea.2Bmap, warning = FALSE}
 sea_map <- prepShape(x = cl, bed.type = "2", shp = sea_shp)
 
-labels <- sprintf(
-  "<strong>%s</strong><br/>Median 2B Rent: %g",
-  sea_map$NAMELSAD10, sea_map$medRent
-) %>% lapply(htmltools::HTML)
-
 pal <- colorBin("Blues", domain = sea_map@data$medRent, bins = 6)
 
 labels <- sprintf(
@@ -393,7 +389,6 @@ leaflet(sea_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -428,7 +423,6 @@ leaflet(sea_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -507,7 +501,6 @@ leaflet(kc_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -542,7 +535,6 @@ leaflet(kc_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -577,7 +569,6 @@ leaflet(kc_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -612,7 +603,6 @@ leaflet(kc_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
@@ -646,7 +636,6 @@ leaflet(neigh_map) %>%
               highlight = highlightOptions(
                               weight = 5,
                               color = "#666",
-                              dashArray = "",
                               fillOpacity = 0.7,
                               bringToFront = TRUE),
                 label = labels,
