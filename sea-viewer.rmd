@@ -1298,7 +1298,7 @@ hchart(agg_west, type = "line",
 
 
 
-VPS {data-navmenu="SHA"}
+VPS Overview {data-navmenu="SHA"}
 =====================================
 
 Row
@@ -1308,7 +1308,7 @@ Row
 
 ```{r vps.90day}
 sum_vps_cov_90 <- cl %>%
-  filter(clean_beds <= 5, listing_date %in% seq(Sys.Date()-91, Sys.Date()-1, 1)) %>%
+  filter(seattle == 1, clean_beds <= 5, listing_date %in% seq(Sys.Date()-91, Sys.Date()-1, 1)) %>%
   group_by(clean_beds) %>%
   summarize(n = n(),
             n_covered_fmr = sum(fmr_2018 >= clean_rent),
@@ -1344,7 +1344,7 @@ sea_thm <- hc_theme_merge(
   hc_theme(colors = RColorBrewer::brewer.pal(5, "Blues")))
 
 sum_vps_cov <- cl %>%
-  filter(clean_beds < 5) %>%
+  filter(seattle == 1, clean_beds < 5) %>%
   group_by(listing_moyr, clean_beds) %>%
   summarize(n = n(),
             n_covered_fmr = sum(fmr_2018 >= clean_rent),
@@ -1365,7 +1365,7 @@ hchart(sum_vps_cov, type = "line",
 
 ```{r}
 sum_vps_cov <- cl %>%
-  filter(clean_beds < 5) %>%
+  filter(seattle == 1, clean_beds < 5) %>%
   group_by(listing_moyr, clean_beds) %>%
   summarize(n = n(),
             n_covered_fmr = sum(fmr_2018 >= clean_rent),
@@ -1381,4 +1381,98 @@ hchart(sum_vps_cov, type = "line",
   hc_tooltip(pointFormat = "<b>{series.name} Bedroom Units</b> <br> % Covered: {point.y:%.0f} <br> N Listings: {point.n}") %>%  
   hc_exporting(enabled = TRUE)
 ```
+
+
+VPS 0B Map {data-navmenu="SHA"}
+=====================================
+
+```{r}
+sum_tract_vps_cov <- cl %>%
+  filter(seattle == 1, clean_beds == 0) %>%
+  group_by(clean_beds, GISJOIN) %>%
+  summarize(n = n(),
+            n_covered_fmr = sum(fmr_2018 >= clean_rent),
+            n_covered_fmr_90pct = sum(fmr_2018_90pct >= clean_rent)) %>%
+  mutate(pct_covered_fmr = round(n_covered_fmr/n, 4)*100,
+         pct_covered_fmr_90pct = round(n_covered_fmr_90pct/n, 4)*100)
+
+sum_tract_vps_cov <- left_join(sea_shp, sum_tract_vps_cov) %>%
+  select(pct_covered_fmr) %>%
+  plot()
+```
+
+VPS 1B Map {data-navmenu="SHA"}
+=====================================
+
+```{r}
+sum_tract_vps_cov <- cl %>%
+  filter(seattle == 1, clean_beds == 1) %>%
+  group_by(clean_beds, GISJOIN) %>%
+  summarize(n = n(),
+            n_covered_fmr = sum(fmr_2018 >= clean_rent),
+            n_covered_fmr_90pct = sum(fmr_2018_90pct >= clean_rent)) %>%
+  mutate(pct_covered_fmr = round(n_covered_fmr/n, 4)*100,
+         pct_covered_fmr_90pct = round(n_covered_fmr_90pct/n, 4)*100)
+
+sum_tract_vps_cov <- left_join(sea_shp, sum_tract_vps_cov) %>%
+  select(pct_covered_fmr) %>%
+  plot()
+```
+
+VPS 2B Map {data-navmenu="SHA"}
+=====================================
+
+```{r}
+sum_tract_vps_cov <- cl %>%
+  filter(clean_beds == 2) %>%
+  group_by(clean_beds, GISJOIN) %>%
+  summarize(n = n(),
+            n_covered_fmr = sum(fmr_2018 >= clean_rent),
+            n_covered_fmr_90pct = sum(fmr_2018_90pct >= clean_rent)) %>%
+  mutate(pct_covered_fmr = round(n_covered_fmr/n, 4)*100,
+         pct_covered_fmr_90pct = round(n_covered_fmr_90pct/n, 4)*100)
+
+sum_tract_vps_cov <- left_join(sea_shp, sum_tract_vps_cov) %>%
+  select(pct_covered_fmr) %>%
+  plot()
+```
+
+VPS 3B Map {data-navmenu="SHA"}
+=====================================
+
+```{r}
+sum_tract_vps_cov <- cl %>%
+  filter(seattle == 1, clean_beds == 3) %>%
+  group_by(clean_beds, GISJOIN) %>%
+  summarize(n = n(),
+            n_covered_fmr = sum(fmr_2018 >= clean_rent),
+            n_covered_fmr_90pct = sum(fmr_2018_90pct >= clean_rent)) %>%
+  mutate(pct_covered_fmr = round(n_covered_fmr/n, 4)*100,
+         pct_covered_fmr_90pct = round(n_covered_fmr_90pct/n, 4)*100)
+
+sum_tract_vps_cov <- left_join(sea_shp, sum_tract_vps_cov) %>%
+  select(pct_covered_fmr) %>%
+  plot()
+```
+
+VPS 4B Map {data-navmenu="SHA"}
+=====================================
+
+```{r}
+sum_tract_vps_cov <- cl %>%
+  filter(seattle == 1, clean_beds == 4) %>%
+  group_by(clean_beds, GISJOIN) %>%
+  summarize(n = n(),
+            n_covered_fmr = sum(fmr_2018 >= clean_rent),
+            n_covered_fmr_90pct = sum(fmr_2018_90pct >= clean_rent)) %>%
+  mutate(pct_covered_fmr = round(n_covered_fmr/n, 4)*100,
+         pct_covered_fmr_90pct = round(n_covered_fmr_90pct/n, 4)*100)
+
+sum_tract_vps_cov <- left_join(sea_shp, sum_tract_vps_cov) %>%
+  select(pct_covered_fmr) %>%
+  plot()
+```
+
+
+
 
