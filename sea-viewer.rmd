@@ -65,12 +65,7 @@ cl <- inner_join(cl_geo, cl)
 cl <- cl %>%
   filter(!match_type %in% c("No Address Found", "Google Maps Lat/Long"))
 
-#query the tract geography table
-wash <- DB %>%
-  tbl("tract10") %>%
-  filter(statefp10 == "53", countyfp10 == "033") %>%
-  collect
-
+#save the CRS to use for reprojecting other data
 cl_crs <- st_crs(cl_geo$geometry)$epsg
 
 #load shapefiles and transform to AEA
