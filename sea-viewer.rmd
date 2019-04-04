@@ -86,6 +86,9 @@ neigh_shp <- neigh_shp %>%
 #dummy for seattle
 cl$seattle <- st_within(cl, sea_shp) %>% lengths > 0 %>% as.numeric()
 
+#dummy fo kc
+cl$kingcty <- st_within(cl, kc_shp) %>% lengths > 0 %>% as.numeric()
+
 #append tract IDs
 cl <- st_join(cl, kc_shp[, "GISJOIN"])
 
@@ -208,6 +211,10 @@ vps <- read_csv("./sha_vps.csv")
 
 #join to cl
 cl <- left_join(cl, vps)
+
+#restrict to KC
+cl <- cl %>%
+  filter(kingcty == 1)
 ```
 
 Home {data-icon="fa-home"}
